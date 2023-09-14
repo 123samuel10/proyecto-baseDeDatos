@@ -14,11 +14,10 @@ public class ConexionDB {
     private static Connection connection;
 
 
-    public static Connection getInstance() throws SQLException {
-        if(connection==null){
-            connection = DriverManager.getConnection(url,user,password);
-            System.out.printf("conectadaaaaaaaa");
-        }
-        return connection;
+    public static Connection getConnection() throws SQLException, ClassNotFoundException {
+        Class.forName("com.mysql.jdbc.Driver");
+        return DriverManager.getConnection(url, user, password);
     }
+
+
 }

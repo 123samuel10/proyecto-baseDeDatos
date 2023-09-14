@@ -7,6 +7,7 @@ import com.example.proyectojakartaee.service.ClienteService;
 import javax.swing.*;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,9 +15,8 @@ import java.util.List;
 public class ClienteServiceImpl implements ClienteService {
     List<Cliente> clientes=new ArrayList<>();
 
-    private Connection getConnection() throws SQLException {
-        return ConexionDB.getInstance();
-
+    private Connection getConnection() throws SQLException, ClassNotFoundException {
+        return ConexionDB.getConnection();
     }
     @Override
     public void agregarCliente(int id, String nombre, String edad, String correo, String telefono,String direccion) {
@@ -31,32 +31,32 @@ public class ClienteServiceImpl implements ClienteService {
             preparedStatement.setString(5,telefono);
             preparedStatement.setString(6,direccion);
             preparedStatement.executeUpdate();
-        } catch (SQLException e) {
+        } catch (SQLException | ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
-
     }
+
     @Override
-    public void buscarCliente(int id) {
-        if (id == 0) {
-            throw new IllegalArgumentException("ID cannot be null");
-        }
-        clientes.stream()
-                .filter(cliente -> cliente.getId()==id)
-                .forEach(cliente -> mostrarDatosCliente(cliente));
+    public Cliente buscarCliente(int id) {
         try (Connection connection = getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement(
-                     "SELECT FROM cliente WHERE id = ?")) {
+             PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM cliente WHERE id = ?")) {
             preparedStatement.setInt(1, id);
-            preparedStatement.executeUpdate();
-        } catch (SQLException e) {
+            ResultSet resultSet = preparedStatement.executeQuery();
+            if (resultSet.next()) {
+                int clienteId = resultSet.getInt("id");
+                String nombre = resultSet.getString("nombre");
+                String edad = resultSet.getString("edad");
+                String correo = resultSet.getString("correo");
+                String telefono = resultSet.getString("telefono");
+                String direccion = resultSet.getString("direccion"); // Corrige este campo para que sea "direccion"
+                return new Cliente(clienteId, nombre, edad, correo, telefono, direccion);
+            }
+        } catch (SQLException | ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
+        return null; // Devuelve null si el cliente no se encuentra
+    }
 
-    }
-    private void mostrarDatosCliente(Cliente cliente) {
-        JOptionPane.showMessageDialog(null,"ID: " + cliente.getId() + "NOMBRE: "+cliente.getNombre()+" EDAD: "+cliente.getEdad()+" CORREO: "+cliente.getCorreo()+" TELEFONO: "+cliente.getTelefono()+" DIRECCION: "+cliente.getDireccion());
-    }
 
     @Override
     public void eliminarCliente(int id) {
@@ -66,18 +66,19 @@ public class ClienteServiceImpl implements ClienteService {
         clientes.removeIf(customer -> customer.getId()==id);
 
         // Eliminar el cliente desde la base de datos
-        try (Connection connection = getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement(
-                     "DELETE FROM cliente WHERE id = ?")) {
-            preparedStatement.setInt(1, id);
+        try (PreparedStatement preparedStatement=getConnection().prepareStatement("DELETE FROM cliente WHERE id = ?")){
+            preparedStatement.setLong(1,id);
             preparedStatement.executeUpdate();
-        } catch (SQLException e) {
+            preparedStatement.close();
+        }catch (SQLException e) {
+            e.printStackTrace();
+        } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
     }
 
     @Override
-    public void modificarCliente(int id, String nombre, String edad, String correo,String telefono, String direccion) {
+    public void modificarCliente(int id, String nombre, String edad, String correo, String telefono, String direccion) {
         for (Cliente cliente : clientes) {
             if (cliente != null && cliente.getId()==id) {
                 cliente.setNombre(nombre);
@@ -98,15 +99,32 @@ public class ClienteServiceImpl implements ClienteService {
             preparedStatement.setString(5, direccion);
             preparedStatement.setInt(6, id);
             preparedStatement.executeUpdate();
-        } catch (SQLException e) {
+        } catch (SQLException | ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
     }
-
     @Override
-    public void listar() {
-        clientes.stream().forEach(cliente -> JOptionPane.showMessageDialog(null,"ID: " + cliente.getId() + "NOMBRE: "+cliente.getNombre()+" EDAD: "+cliente.getEdad()+" CORREO: "+cliente.getCorreo()+" TELEFONO: "+cliente.getTelefono() +" DIRECCION: "+cliente.getDireccion()));
+    public List<Cliente> listarClientes() {
+        List<Cliente> clientes = new ArrayList<>();
+        try (Connection connection = getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM cliente")) {
+            ResultSet resultSet = preparedStatement.executeQuery();
+            while (resultSet.next()) {
+                int id = resultSet.getInt("id");
+                String nombre = resultSet.getString("nombre");
+                String edad = resultSet.getString("edad");
+                String correo = resultSet.getString("correo");
+                String telefono = resultSet.getString("telefono");
+                String direccion = resultSet.getString("direccion");
+                clientes.add(new Cliente(id, nombre, edad, correo, telefono, direccion));
+            }
+        } catch (SQLException | ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+        return clientes;
     }
 
-
+    public List<Cliente> getClientes() {
+        return clientes;
+    }
 }
